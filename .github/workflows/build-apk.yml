@@ -1,23 +1,64 @@
-name: C/C++ CI
+name: Build APK Naruto Senki Final
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - name: configure
-      run: ./configure
-    - name: make
-      run: make
-    - name: make check
-      run: make check
-    - name: make distcheck
-      run: make distcheck
+      - name: Bersihkan Penyimpanan Runner (Aman)
+        run: |
+          # Hapus framework lain yang tidak digunakan game ini
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          
+          # Hapus file mentahan installer Android yang menumpuk tanpa menghapus SDK-nya
+          sudo rm -rf /usr/local/lib/android/tgz
+          
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Pasang Java 8 Ramah Gradle Lama
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '8'
+
+      - name: Pasang Android NDK r21e
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r21e
+          local-cache: true
+
+      - name: Jalankan Proses Perakitan Game
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+        run: |
+          mkdir -p NarutoSenki-V2-master/projects/NarutoSenki/proj.android-studio
+          echo -e "ndk.dir=$ANDROID_NDK_HOME\nsdk.dir=/usr/local/lib/android/sdk" > NarutoSenki-V2-master/projects/NarutoSenki/proj.android-studio/local.properties
+
+          find $GITHUB_WORKSPACE -name "Application.mk" -type f -exec sed -i 's/NDK_TOOLCHAIN_VERSION\s*:=\s*4.9/NDK_TOOLCHAIN_VERSION := clang/g' {} +
+
+          cd NarutoSenki-V2-master/projects/NarutoSenki/proj.android-studio
+          chmod +x gradlew
+          
+          export NDK_MODULE_PATH=$GITHUB_WORKSPACE/NarutoSenki-V2-master:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android/prebuilt:$GITHUB_WORKSPACE/NarutoSenki-V2-master/CocosDenshion/android
+          
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Buat Menu Release Otomatis
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v2.10-build-${{ github.run_number }}
+          name: Naruto Senki Build #${{ github.run_number }}
+          files: |
+            **/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
