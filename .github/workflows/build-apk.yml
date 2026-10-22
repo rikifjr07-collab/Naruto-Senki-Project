@@ -35,14 +35,6 @@ jobs:
           ndk-version: r21e
           local-cache: true
 
-      # TRIK BARU: Menginstal pustaka fmt langsung ke sistem operasi server
-      - name: Pasang Pustaka fmt Sistem dan Hubungkan ke Project
-        run: |
-          sudo apt-get update && sudo apt-get install -y libfmt-dev
-          # Membuat jalan pintas (shortcut) agar kompiler Android mendeteksi fmt dari sistem Ubuntu
-          mkdir -p NarutoSenki-V2-master/cocos2dx/include
-          ln -s /usr/include/fmt NarutoSenki-V2-master/cocos2dx/include/fmt
-
       - name: Jalankan Proses Perakitan Game
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
