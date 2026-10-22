@@ -45,18 +45,21 @@ jobs:
 
           find $GITHUB_WORKSPACE -name "Application.mk" -type f -exec sed -i 's/NDK_TOOLCHAIN_VERSION\s*:=\s*4.9/NDK_TOOLCHAIN_VERSION := clang/g' {} +
 
-          # MEMPERBAIKI JALUR LIBRARY HILANG: Membuat shortcut folder ke folder external asli proyek
-          mkdir -p NarutoSenki-V2-master/cocos2dx/include
-          ln -s $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml NarutoSenki-V2-master/cocos2dx/include/src
-          ln -s $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt NarutoSenki-V2-master/cocos2dx/include/fmt
+          # PERBAIKAN UTAMA: Menyalin folder toml secara utuh ke folder include/src agar dibaca dengan pas
+          mkdir -p NarutoSenki-V2-master/cocos2dx/include/src
+          cp -r NarutoSenki-V2-master/external/toml/* NarutoSenki-V2-master/cocos2dx/include/src/
+          
+          # Menyalin folder fmt ke folder include/fmt
+          mkdir -p NarutoSenki-V2-master/cocos2dx/include/fmt
+          cp -r NarutoSenki-V2-master/external/fmt/* NarutoSenki-V2-master/cocos2dx/include/fmt/
 
           cd NarutoSenki-V2-master/projects/NarutoSenki/proj.android-studio
           chmod +x gradlew
           
-          # Menambahkan folder external ke dalam NDK_MODULE_PATH
           export NDK_MODULE_PATH=$GITHUB_WORKSPACE/NarutoSenki-V2-master:$GITHUB_WORKSPACE/NarutoSenki-V2-master/external:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android/prebuilt:$GITHUB_WORKSPACE/NarutoSenki-V2-master/CocosDenshion/android
           
           ./gradlew assembleDebug --no-daemon
+
 
       - name: Buat Menu Release Otomatis
         uses: softprops/action-gh-release@v2
