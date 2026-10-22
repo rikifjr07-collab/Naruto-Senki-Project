@@ -45,34 +45,31 @@ jobs:
           # 1. Pastikan kompiler menggunakan Clang modern
           find $GITHUB_WORKSPACE -name "Application.mk" -type f -exec sed -i 's/NDK_TOOLCHAIN_VERSION\s*:=\s*4.9/NDK_TOOLCHAIN_VERSION := clang/g' {} +
 
-          # 2. HAPUS SEMUA SISA PATH YANG TERSESAT
+          # 2. HAPUS SISA FILE EKSKLUSIF YANG BISA MEMBINGUNGKAN PATH PENCARIAN
           rm -f NarutoSenki-V2-master/cocos2dx/include/toml.hpp
           rm -rf NarutoSenki-V2-master/cocos2dx/include/src
           rm -rf NarutoSenki-V2-master/cocos2dx/include/fmt
 
-          # 3. PASANG KEMBALI TOML DARI FOLDER EXTERNAL LOKAL REPO ANDA
+          # 3. MENYUNTIKKAN JALUR INCLUDES SECARA AGRESIF KE FILE ANDROID.MK
+          # Perintah ini memaksa kompiler mencari library di dalam folder external/ dan external/fmt bawaan asli Anda
+          find $GITHUB_WORKSPACE -name "Android.mk" -type f -exec sed -i 's|LOCAL_C_INCLUDES\s*:=|LOCAL_C_INCLUDES := \$(LOCAL_PATH)/../../../../external \$(LOCAL_PATH)/../../../../external/fmt \$(LOCAL_PATH)/../../../../external/toml |g' {} +
+          find $GITHUB_WORKSPACE -name "Android.mk" -type f -exec sed -i 's|LOCAL_C_INCLUDES\s*+=|LOCAL_C_INCLUDES += \$(LOCAL_PATH)/../../../../external \$(LOCAL_PATH)/../../../../external/fmt \$(LOCAL_PATH)/../../../../external/toml |g' {} +
+
+          # 4. SALIN CADANGAN LANGSUNG KE INTEGRASI COMPILER ANDROID NDK GLOBAL
+          # Sebagai jaminan ganda jika file Android.mk memotong jalur include di atas
           cp -r NarutoSenki-V2-master/external/toml/* $ANDROID_NDK_HOME/sysroot/usr/include/ 2>/dev/null || true
           mkdir -p $ANDROID_NDK_HOME/sysroot/usr/include/src
           cp -r NarutoSenki-V2-master/external/toml/* $ANDROID_NDK_HOME/sysroot/usr/include/src/ 2>/dev/null || true
-
-          # 4. SOLUSI MANDIRI: Buat file fmt/core.h tiruan secara lokal tanpa internet
-          # Langkah ini menyuntikkan fungsi macro format string minimal agar kompiler tidak mengeluh file hilang
+          
           mkdir -p $ANDROID_NDK_HOME/sysroot/usr/include/fmt
-          
-          echo -e '#ifndef FMT_CORE_H_\n#define FMT_CORE_H_\n#include <string>\n#include <iostream>\nnamespace fmt { inline namespace v8 { template <typename... Args> std::string format(std::string_view fmt, const Args&... args) { return ""; } } }\n#endif' > $ANDROID_NDK_HOME/sysroot/usr/include/fmt/core.h
-          
-          echo -e '#ifndef FMT_FORMAT_H_\n#define FMT_FORMAT_H_\n#include "core.h"\n#endif' > $ANDROID_NDK_HOME/sysroot/usr/include/fmt/format.h
-          
-          echo -e '#ifndef FMT_FORMAT_INL_H_\n#define FMT_FORMAT_INL_H_\n#endif' > $ANDROID_NDK_HOME/sysroot/usr/include/fmt/format-inl.h
+          cp -r NarutoSenki-V2-master/external/fmt/* $ANDROID_NDK_HOME/sysroot/usr/include/fmt/ 2>/dev/null || true
 
-          # 5. PINDAH KE FOLDER UTAMA PROYEK
+          # 5. MASUK KE FOLDER BUILD DAN LAKUKAN CLEAN BUILD SEGAR
           cd NarutoSenki-V2-master/projects/NarutoSenki/proj.android-studio
           chmod +x gradlew
-          
-          # 6. BERSIHKAN TOTAL SISA DATA ERROR SEBELUMNYA
           ./gradlew clean
           
-          export NDK_MODULE_PATH=$GITHUB_WORKSPACE/NarutoSenki-V2-master/external:$GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml:$GITHUB_WORKSPACE/NarutoSenki-V2-master:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android/prebuilt:$GITHUB_WORKSPACE/NarutoSenki-V2-master/CocosDenshion/android
+          export NDK_MODULE_PATH=$GITHUB_WORKSPACE/NarutoSenki-V2-master/external:$GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml:$GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt:$GITHUB_WORKSPACE/NarutoSenki-V2-master:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android/prebuilt:$GITHUB_WORKSPACE/NarutoSenki-V2-master/CocosDenshion/android
           
           ./gradlew assembleDebug --no-daemon
 
