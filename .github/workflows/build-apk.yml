@@ -45,25 +45,33 @@ jobs:
 
           find $GITHUB_WORKSPACE -name "Application.mk" -type f -exec sed -i 's/NDK_TOOLCHAIN_VERSION\s*:=\s*4.9/NDK_TOOLCHAIN_VERSION := clang/g' {} +
 
-          # PERBAIKAN: Hapus file duplikat manual di folder include agar tidak memicu error lama
-          rm -f NarutoSenki-V2-master/cocos2dx/include/toml.hpp
-          rm -rf NarutoSenki-V2-master/cocos2dx/include/fmt
-
-          # Buat struktur folder bersih untuk mengalihkan pencarian src/
+          # PERBAIKAN TOTAL: Bersihkan folder include, lalu salin ulang struktur library eksternal dengan tepat
+          rm -rf NarutoSenki-V2-master/cocos2dx/include/*
           mkdir -p NarutoSenki-V2-master/cocos2dx/include/src
-          
-          # Salin isi folder eksternal bawaan proyek asli ke folder include
-          cp -r NarutoSenki-V2-master/external/toml/* NarutoSenki-V2-master/cocos2dx/include/
-          cp -r NarutoSenki-V2-master/external/toml/* NarutoSenki-V2-master/cocos2dx/include/src/
           mkdir -p NarutoSenki-V2-master/cocos2dx/include/fmt
-          cp -r NarutoSenki-V2-master/external/fmt/* NarutoSenki-V2-master/cocos2dx/include/fmt/
+
+          # Salin isi library toml bawaan proyek asli
+          cp -r NarutoSenki-V2-master/external/toml/* NarutoSenki-V2-master/cocos2dx/include/ 2>/dev/null || true
+          cp -r NarutoSenki-V2-master/external/toml/* NarutoSenki-V2-master/cocos2dx/include/src/ 2>/dev/null || true
+          
+          # Salin isi library fmt bawaan proyek asli
+          cp -r NarutoSenki-V2-master/external/fmt/* NarutoSenki-V2-master/cocos2dx/include/fmt/ 2>/dev/null || true
+
+          # JALUR CADANGAN: Jika folder external ternyata kosong, unduh master toml.hpp & fmt langsung ke folder include
+          curl -L https://githubusercontent.com -o NarutoSenki-V2-master/cocos2dx/include/toml.hpp
+          curl -L https://githubusercontent.com -o NarutoSenki-V2-master/cocos2dx/include/src/toml.hpp
+          curl -L https://githubusercontent.com -o NarutoSenki-V2-master/cocos2dx/include/fmt/core.h
+          curl -L https://githubusercontent.com -o NarutoSenki-V2-master/cocos2dx/include/fmt/format.h
+          curl -L https://githubusercontent.com -o NarutoSenki-V2-master/cocos2dx/include/fmt/format-inl.h
 
           cd NarutoSenki-V2-master/projects/NarutoSenki/proj.android-studio
           chmod +x gradlew
           
-          export NDK_MODULE_PATH=$GITHUB_WORKSPACE/NarutoSenki-V2-master:$GITHUB_WORKSPACE/NarutoSenki-V2-master/external:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android/prebuilt:$GITHUB_WORKSPACE/NarutoSenki-V2-master/CocosDenshion/android
+          # Daftarkan folder include secara eksplisit di awal NDK_MODULE_PATH
+          export NDK_MODULE_PATH=$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include:$GITHUB_WORKSPACE/NarutoSenki-V2-master:$GITHUB_WORKSPACE/NarutoSenki-V2-master/external:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android/prebuilt:$GITHUB_WORKSPACE/NarutoSenki-V2-master/CocosDenshion/android
           
           ./gradlew assembleDebug --no-daemon
+
 
       - name: Buat Menu Release Otomatis
         uses: softprops/action-gh-release@v2
