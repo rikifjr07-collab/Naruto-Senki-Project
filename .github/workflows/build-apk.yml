@@ -43,20 +43,36 @@ jobs:
           mkdir -p NarutoSenki-V2-master/projects/NarutoSenki/proj.android-studio
           echo -e "ndk.dir=$ANDROID_NDK_HOME\nsdk.dir=/usr/local/lib/android/sdk" > NarutoSenki-V2-master/projects/NarutoSenki/proj.android-studio/local.properties
 
-          # Mengubah setingan kompiler agar membaca folder GCC dengan benar
+          # 1. Bersihkan kompiler GCC
           find $GITHUB_WORKSPACE -name "Application.mk" -type f -exec sed -i 's/NDK_TOOLCHAIN_VERSION\s*:=\s*4.9/NDK_TOOLCHAIN_VERSION := clang/g' {} +
 
-          # SOLUSI JALUR LOKAL: Mengubah panggilah kode di Android.mk agar melirik folder external bawaan asli Anda
-          find $GITHUB_WORKSPACE -name "Android.mk" -type f -exec sed -i 's/\$(LOCAL_PATH)\/\.\.\/\.\.\/cocos2dx\/include/\$(LOCAL_PATH)\/\.\.\/\.\.\/external\/toml/g' {} +
-          find $GITHUB_WORKSPACE -name "Android.mk" -type f -exec sed -i 's/cocos2dx\/include\/toml\.hpp/external\/toml\/toml\.hpp/g' {} +
+          # 2. HAPUS PAKSA FILE RUSAK DI REPO ANDA
+          rm -f NarutoSenki-V2-master/cocos2dx/include/toml.hpp
+          rm -rf NarutoSenki-V2-master/cocos2dx/include/src
 
+          # 3. BUAT STRUKTUR BARU DAN SALIN KODE ASLI DARI FOLDER EXTERNAL
+          mkdir -p NarutoSenki-V2-master/cocos2dx/include/src
+          
+          # Salin isi dari folder external/toml bawaan asli proyek ke include utama dan include/src
+          if [ -d "NarutoSenki-V2-master/external/toml" ]; then
+            cp -r NarutoSenki-V2-master/external/toml/* NarutoSenki-V2-master/cocos2dx/include/src/
+            cp -r NarutoSenki-V2-master/external/toml/toml.hpp NarutoSenki-V2-master/cocos2dx/include/ 2>/dev/null || true
+          fi
+
+          # Salin folder fmt bawaan asli proyek
+          if [ -d "NarutoSenki-V2-master/external/fmt" ]; then
+            mkdir -p NarutoSenki-V2-master/cocos2dx/include/fmt
+            cp -r NarutoSenki-V2-master/external/fmt/* NarutoSenki-V2-master/cocos2dx/include/fmt/
+          fi
+
+          # 4. MULAI COMPILE
           cd NarutoSenki-V2-master/projects/NarutoSenki/proj.android-studio
           chmod +x gradlew
           
-          # Mendaftarkan folder external ke dalam jalur resmi kompilasi Android
-          export NDK_MODULE_PATH=$GITHUB_WORKSPACE/NarutoSenki-V2-master/external:$GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml:$GITHUB_WORKSPACE/NarutoSenki-V2-master:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android/prebuilt:$GITHUB_WORKSPACE/NarutoSenki-V2-master/CocosDenshion/android
+          export NDK_MODULE_PATH=$GITHUB_WORKSPACE/NarutoSenki-V2-master:$GITHUB_WORKSPACE/NarutoSenki-V2-master/external:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android/prebuilt:$GITHUB_WORKSPACE/NarutoSenki-V2-master/CocosDenshion/android
           
           ./gradlew assembleDebug --no-daemon
+
 
       - name: Buat Menu Release Otomatis
         uses: softprops/action-gh-release@v2
