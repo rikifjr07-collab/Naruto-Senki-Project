@@ -3,6 +3,9 @@ name: Build APK Naruto Senki Final
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -10,13 +13,10 @@ jobs:
     steps:
       - name: Bersihkan Penyimpanan Runner (Aman)
         run: |
-          # Hapus framework lain yang tidak digunakan game ini
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /opt/ghc
           sudo rm -rf "/usr/local/share/boost"
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
-          
-          # Hapus file mentahan installer Android yang menumpuk tanpa menghapus SDK-nya
           sudo rm -rf /usr/local/lib/android/tgz
           
       - name: Check out repo
@@ -34,6 +34,14 @@ jobs:
         with:
           ndk-version: r21e
           local-cache: true
+
+      # LANGKAH PERBAIKAN: Mengunduh otomatis library fmt yang hilang ke folder include
+      - name: Unduh Otomatis Library fmt yang Hilang
+        run: |
+          mkdir -p NarutoSenki-V2-master/cocos2dx/include/fmt
+          curl -L https://githubusercontent.com -o NarutoSenki-V2-master/cocos2dx/include/fmt/core.h
+          curl -L https://githubusercontent.com -o NarutoSenki-V2-master/cocos2dx/include/fmt/format.h
+          curl -L https://githubusercontent.com -o NarutoSenki-V2-master/cocos2dx/include/fmt/format-inl.h
 
       - name: Jalankan Proses Perakitan Game
         env:
@@ -53,7 +61,7 @@ jobs:
           ./gradlew assembleDebug --no-daemon
 
       - name: Buat Menu Release Otomatis
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v2.10-build-${{ github.run_number }}
           name: Naruto Senki Build #${{ github.run_number }}
@@ -61,4 +69,3 @@ jobs:
             **/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
