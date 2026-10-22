@@ -42,35 +42,29 @@ jobs:
           mkdir -p NarutoSenki-V2-master/projects/NarutoSenki/proj.android-studio
           echo -e "ndk.dir=$ANDROID_NDK_HOME\nsdk.dir=/usr/local/lib/android/sdk" > NarutoSenki-V2-master/projects/NarutoSenki/proj.android-studio/local.properties
 
-          # 1. Pastikan kompiler menggunakan Clang
+          # 1. Paksa compiler beralih dari GCC lama ke Clang modern
           find $GITHUB_WORKSPACE -name "Application.mk" -type f -exec sed -i 's/NDK_TOOLCHAIN_VERSION\s*:=\s*4.9/NDK_TOOLCHAIN_VERSION := clang/g' {} +
 
-          # 2. BERSIHKAN FOLDER INCLUDE PUSAT
+          # 2. HAPUS SEMUA DUPLIKAT MANUAL YANG BERPOTENSI MERUSAK JALUR
           rm -f NarutoSenki-V2-master/cocos2dx/include/toml.hpp
           rm -rf NarutoSenki-V2-master/cocos2dx/include/src
-          
-          mkdir -p NarutoSenki-V2-master/cocos2dx/include/src
-          mkdir -p NarutoSenki-V2-master/cocos2dx/include/fmt
 
-          # 3. SALIN KE FOLDER INCLUDE BAWAAN (LOKAL)
-          cp -r NarutoSenki-V2-master/external/toml/* NarutoSenki-V2-master/cocos2dx/include/ 2>/dev/null || true
-          cp -r NarutoSenki-V2-master/external/toml/* NarutoSenki-V2-master/cocos2dx/include/src/ 2>/dev/null || true
-          cp -r NarutoSenki-V2-master/external/fmt/* NarutoSenki-V2-master/cocos2dx/include/fmt/ 2>/dev/null || true
+          # 3. MENYUNTIKKAN FILE UTAMA LANGSUNG KE SYSTEM INCLUDE ANDROID NDK
+          # Trik ini membuat file toml.hpp dikenali secara global oleh modul mana pun di dalam proyek game
+          cp -r NarutoSenki-V2-master/external/toml/* $ANDROID_NDK_HOME/sysroot/usr/include/ 2>/dev/null || true
+          cp -r NarutoSenki-V2-master/external/fmt/* $ANDROID_NDK_HOME/sysroot/usr/include/ 2>/dev/null || true
 
-          # 4. SALIN LANGSUNG KE LOKASI TARGET DI CLASSES DAN UTILS
-          # Menaruh file toml.hpp langsung ke folder Classes dan subfolder Utils sesuai Gambar 1 Anda
-          cp NarutoSenki-V2-master/external/toml/toml.hpp NarutoSenki-V2-master/projects/NarutoSenki/Classes/ 2>/dev/null || true
-          cp NarutoSenki-V2-master/external/toml/toml.hpp NarutoSenki-V2-master/projects/NarutoSenki/Classes/Utils/ 2>/dev/null || true
-          cp NarutoSenki-V2-master/external/toml/toml.hpp NarutoSenki-V2-master/projects/NarutoSenki/Classes/Core/ 2>/dev/null || true
-
-          # 5. JALANKAN PROSES GRADLE BUILD
+          # 4. PINDAH KE FOLDER PROYEK ANDROID
           cd NarutoSenki-V2-master/projects/NarutoSenki/proj.android-studio
           chmod +x gradlew
+          
+          # 5. BERSIHKAN CACHE LAMA & MULAI ULANG PROSES COMPILE SECARA SEGAR
+          # Perintah 'clean' akan menghapus riwayat error build sebelumnya agar tidak terbaca lagi
+          ./gradlew clean
           
           export NDK_MODULE_PATH=$GITHUB_WORKSPACE/NarutoSenki-V2-master/external:$GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml:$GITHUB_WORKSPACE/NarutoSenki-V2-master:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android/prebuilt:$GITHUB_WORKSPACE/NarutoSenki-V2-master/CocosDenshion/android
           
           ./gradlew assembleDebug --no-daemon
-
 
       - name: Buat Menu Release Otomatis
         uses: softprops/action-gh-release@v2
