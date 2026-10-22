@@ -42,36 +42,40 @@ jobs:
           mkdir -p NarutoSenki-V2-master/projects/NarutoSenki/proj.android-studio
           echo -e "ndk.dir=$ANDROID_NDK_HOME\nsdk.dir=/usr/local/lib/android/sdk" > NarutoSenki-V2-master/projects/NarutoSenki/proj.android-studio/local.properties
 
-          # 1. Pastikan kompiler menggunakan Clang modern
+          # 1. Pastikan compiler menggunakan Clang modern
           find $GITHUB_WORKSPACE -name "Application.mk" -type f -exec sed -i 's/NDK_TOOLCHAIN_VERSION\s*:=\s*4.9/NDK_TOOLCHAIN_VERSION := clang/g' {} +
 
-          # 2. HAPUS SISA FILE EKSKLUSIF YANG BISA MEMBINGUNGKAN PATH PENCARIAN
-          rm -f NarutoSenki-V2-master/cocos2dx/include/toml.hpp
-          rm -rf NarutoSenki-V2-master/cocos2dx/include/src
-          rm -rf NarutoSenki-V2-master/cocos2dx/include/fmt
+          # 2. BERSIHKAN TOTAL SEMUA PATH MANUVAL LAMA
+          rm -f $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/toml.hpp
+          rm -rf $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/src
+          rm -rf $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/fmt
 
-          # 3. MENYUNTIKKAN JALUR INCLUDES SECARA AGRESIF KE FILE ANDROID.MK
-          # Perintah ini memaksa kompiler mencari library di dalam folder external/ dan external/fmt bawaan asli Anda
-          find $GITHUB_WORKSPACE -name "Android.mk" -type f -exec sed -i 's|LOCAL_C_INCLUDES\s*:=|LOCAL_C_INCLUDES := \$(LOCAL_PATH)/../../../../external \$(LOCAL_PATH)/../../../../external/fmt \$(LOCAL_PATH)/../../../../external/toml |g' {} +
-          find $GITHUB_WORKSPACE -name "Android.mk" -type f -exec sed -i 's|LOCAL_C_INCLUDES\s*+=|LOCAL_C_INCLUDES += \$(LOCAL_PATH)/../../../../external \$(LOCAL_PATH)/../../../../external/fmt \$(LOCAL_PATH)/../../../../external/toml |g' {} +
+          # 3. SALIN FISIK DENGAN PATH ABSOLUT (MENYALIN FOLDER FMT ASLI ANDA)
+          # Membuat folder pusat 'fmt' di lokasi include bawaan yang pasti dibaca compiler
+          mkdir -p $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/fmt
+          mkdir -p $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/src
 
-          # 4. SALIN CADANGAN LANGSUNG KE INTEGRASI COMPILER ANDROID NDK GLOBAL
-          # Sebagai jaminan ganda jika file Android.mk memotong jalur include di atas
-          cp -r NarutoSenki-V2-master/external/toml/* $ANDROID_NDK_HOME/sysroot/usr/include/ 2>/dev/null || true
-          mkdir -p $ANDROID_NDK_HOME/sysroot/usr/include/src
-          cp -r NarutoSenki-V2-master/external/toml/* $ANDROID_NDK_HOME/sysroot/usr/include/src/ 2>/dev/null || true
-          
+          # Menyalin seluruh isi berkas dari folder external bawaan asli Anda
+          cp -r $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml/* $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/ 2>/dev/null || true
+          cp -r $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml/* $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/src/ 2>/dev/null || true
+          cp -r $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt/* $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/fmt/ 2>/dev/null || true
+
+          # 4. SALIN JUGA KE SISTEM UTAMA NDK COMPILER GLOBAL SEBAGAI JAMINAN GANDA
           mkdir -p $ANDROID_NDK_HOME/sysroot/usr/include/fmt
-          cp -r NarutoSenki-V2-master/external/fmt/* $ANDROID_NDK_HOME/sysroot/usr/include/fmt/ 2>/dev/null || true
+          mkdir -p $ANDROID_NDK_HOME/sysroot/usr/include/src
+          cp -r $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml/* $ANDROID_NDK_HOME/sysroot/usr/include/ 2>/dev/null || true
+          cp -r $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml/* $ANDROID_NDK_HOME/sysroot/usr/include/src/ 2>/dev/null || true
+          cp -r $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt/* $ANDROID_NDK_HOME/sysroot/usr/include/fmt/ 2>/dev/null || true
 
-          # 5. MASUK KE FOLDER BUILD DAN LAKUKAN CLEAN BUILD SEGAR
-          cd NarutoSenki-V2-master/projects/NarutoSenki/proj.android-studio
+          # 5. JALANKAN RE-COMPILE FRESH CLEAN BUILD
+          cd $GITHUB_WORKSPACE/NarutoSenki-V2-master/projects/NarutoSenki/proj.android-studio
           chmod +x gradlew
           ./gradlew clean
           
           export NDK_MODULE_PATH=$GITHUB_WORKSPACE/NarutoSenki-V2-master/external:$GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml:$GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt:$GITHUB_WORKSPACE/NarutoSenki-V2-master:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android/prebuilt:$GITHUB_WORKSPACE/NarutoSenki-V2-master/CocosDenshion/android
           
           ./gradlew assembleDebug --no-daemon
+
 
       - name: Buat Menu Release Otomatis
         uses: softprops/action-gh-release@v2
