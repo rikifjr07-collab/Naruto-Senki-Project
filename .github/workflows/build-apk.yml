@@ -45,25 +45,21 @@ jobs:
           # 1. Pastikan compiler menggunakan Clang modern
           find $GITHUB_WORKSPACE -name "Application.mk" -type f -exec sed -i 's/NDK_TOOLCHAIN_VERSION\s*:=\s*4.9/NDK_TOOLCHAIN_VERSION := clang/g' {} +
 
-          # 2. BUAT FILE HEADER KHUSUS UNTUK MENETRALKAN ICONV SECARA MANDIRI
-          # Ini akan mendefinisikan iconv_t dengan aman tanpa mengganggu setingan locale bawaan Android
-          echo -e '#ifndef _NDK_ICONV_FIX_H_\n#define _NDK_ICONV_FIX_H_\ntypedef void* iconv_t;\n#endif' > $GITHUB_WORKSPACE/ndk_iconv_fix.h
+          # 2. SUNTIKKAN FLAG PENETRAL LOCALE LANGSUNG KE COMPILER FLAGS GAME
+          # Bendera ini akan memaksa library fmt dan toml mematikan fitur locale internal mereka yang tidak didukung NDK r21e
+          find $GITHUB_WORKSPACE -name "Application.mk" -type f -exec sed -i 's/APP_CPPFLAGS\s*:=/APP_CPPFLAGS := -DFMT_STATIC_THOUSANDS_SEPARATOR=1 -DFMT_NOMINMAX=1 -D_GNU_SOURCE /g' {} +
+          find $GITHUB_WORKSPACE -name "Application.mk" -type f -exec sed -i 's/APP_CPPFLAGS\s*+=/APP_CPPFLAGS += -DFMT_STATIC_THOUSANDS_SEPARATOR=1 -DFMT_NOMINMAX=1 -D_GNU_SOURCE /g' {} +
 
-          # 3. SUNTIKKAN BENDERA COMPILER GLOBAL KE APPLICATION.MK
-          # Perintah ini memaksa kompiler membaca file ndk_iconv_fix.h di setiap awal proses compile C++
-          find $GITHUB_WORKSPACE -name "Application.mk" -type f -exec sed -i "s|APP_CPPFLAGS\s*:=|APP_CPPFLAGS := -include $GITHUB_WORKSPACE/ndk_iconv_fix.h |g" {} +
-          find $GITHUB_WORKSPACE -name "Application.mk" -type f -exec sed -i "s|APP_CPPFLAGS\s*+=|APP_CPPFLAGS += -include $GITHUB_WORKSPACE/ndk_iconv_fix.h |g" {} +
-
-          # 4. BERSIHKAN TOTAL FOLDER INCLUDE PUSAT REPO AGAR TIDAK BENTROK
+          # 3. BERSIHKAN TOTAL FOLDER INCLUDE PUSAT REPO AGAR TIDAK BENTROK
           rm -rf $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/toml.hpp
           rm -rf $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/src
           rm -rf $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/fmt
 
-          # 5. Hubungkan bendera pencarian compiler (-I) langsung ke file build utama game
+          # 4. Hubungkan bendera pencarian compiler (-I) langsung ke file build utama game
           find $GITHUB_WORKSPACE -name "Android.mk" -type f -exec sed -i "s|LOCAL_C_INCLUDES\s*:=|LOCAL_C_INCLUDES := $GITHUB_WORKSPACE/NarutoSenki-V2-master/external $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt |g" {} +
           find $GITHUB_WORKSPACE -name "Android.mk" -type f -exec sed -i "s|LOCAL_C_INCLUDES\s*+=|LOCAL_C_INCLUDES += $GITHUB_WORKSPACE/NarutoSenki-V2-master/external $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt |g" {} +
 
-          # 6. MASUK KE FOLDER UTAMA DAN JALANKAN CLEAN BUILD SEGAR
+          # 5. MASUK KE FOLDER UTAMA DAN JALANKAN CLEAN BUILD SEGAR
           cd $GITHUB_WORKSPACE/NarutoSenki-V2-master/projects/NarutoSenki/proj.android-studio
           chmod +x gradlew
           ./gradlew clean
@@ -71,6 +67,7 @@ jobs:
           export NDK_MODULE_PATH=$GITHUB_WORKSPACE/NarutoSenki-V2-master/external:$GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml:$GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt:$GITHUB_WORKSPACE/NarutoSenki-V2-master:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android/prebuilt:$GITHUB_WORKSPACE/NarutoSenki-V2-master/CocosDenshion/android
           
           ./gradlew assembleDebug --no-daemon
+
 
       - name: Buat Menu Release Otomatis
         uses: softprops/action-gh-release@v2
