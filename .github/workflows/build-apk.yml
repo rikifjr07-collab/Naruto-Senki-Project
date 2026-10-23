@@ -45,17 +45,21 @@ jobs:
           # 1. Pastikan compiler menggunakan Clang modern
           find $GITHUB_WORKSPACE -name "Application.mk" -type f -exec sed -i 's/NDK_TOOLCHAIN_VERSION\s*:=\s*4.9/NDK_TOOLCHAIN_VERSION := clang/g' {} +
 
-          # 2. BERSIHKAN FOLDER INCLUDE PUSAT REPO AGAR TIDAK BENTROK
+          # 2. BERSIHKAN TOTAL FOLDER INCLUDE PUSAT REPO AGAR TIDAK BENTROK
           rm -rf $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/toml.hpp
           rm -rf $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/src
           rm -rf $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/fmt
 
-          # 3. FIX JUARA: Menyuntikkan pemutus locale tepat di bawah deklarasi FMT_VERSION pada file core.h Anda
-          # Trik ini mematikan fitur lokalisasi secara mutlak di dalam library fmt bawaan proyek Anda
-          FMT_CORE="$GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt/core.h"
-          if [ -f "$FMT_CORE" ]; then
-            sed -i '/#define FMT_VERSION 80001/a \\n// NDK Locale Fixes\\n#define FMT_STATIC_THOUSANDS_SEPARATOR 1\\n#define FMT_NOMINMAX 1\\ntypedef void* iconv_t;' "$FMT_CORE"
-          fi
+          # 3. SOLUSI PANGKAS TOTAL: Suntikkan file penetral locale langsung ke sistem internal kompilasi NDK global
+          # Ini akan membungkam error uselocale, localeconv, dan iconv_t secara permanen di level terdalam compiler
+          echo -e '#ifndef _NDK_LOCALE_FIX_H_\n#define _NDK_LOCALE_FIX_H_\n#include <sys/cdefs.h>\ntypedef void* iconv_t;\ntypedef void* locale_t;\n#define LC_COLLATE_MASK 0\n#define LC_CTYPE_MASK 0\n#define LC_MONETARY_MASK 0\n#define LC_NUMERIC_MASK 0\n#define LC_TIME_MASK 0\n#define LC_MESSAGES_MASK 0\n#ifdef __cplusplus\nextern "C" {\n#endif\ninline locale_t uselocale(locale_t) { return 0; }\ninline void* localeconv() { return 0; }\n#ifdef __cplusplus\n}\n#endif\n#endif' > $GITHUB_WORKSPACE/ndk_locale_fix.h
+
+          # Masukkan file penetral ke folder system include utama NDK
+          cp $GITHUB_WORKSPACE/ndk_locale_fix.h $ANDROID_NDK_HOME/sysroot/usr/include/
+          
+          # Suntikkan bendera kompilasi agar file penetral ini dibaca di baris pertama proses compile
+          find $GITHUB_WORKSPACE -name "Application.mk" -type f -exec sed -i "s|APP_CPPFLAGS\s*:=|APP_CPPFLAGS := -include $ANDROID_NDK_HOME/sysroot/usr/include/ndk_locale_fix.h -DFMT_STATIC_THOUSANDS_SEPARATOR=1 |g" {} +
+          find $GITHUB_WORKSPACE -name "Application.mk" -type f -exec sed -i "s|APP_CPPFLAGS\s*+=|APP_CPPFLAGS += -include $ANDROID_NDK_HOME/sysroot/usr/include/ndk_locale_fix.h -DFMT_STATIC_THOUSANDS_SEPARATOR=1 |g" {} +
 
           # 4. Hubungkan bendera pencarian compiler (-I) langsung ke file build utama game
           find $GITHUB_WORKSPACE -name "Android.mk" -type f -exec sed -i "s|LOCAL_C_INCLUDES\s*:=|LOCAL_C_INCLUDES := $GITHUB_WORKSPACE/NarutoSenki-V2-master/external $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt |g" {} +
@@ -69,6 +73,7 @@ jobs:
           export NDK_MODULE_PATH=$GITHUB_WORKSPACE/NarutoSenki-V2-master/external:$GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml:$GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt:$GITHUB_WORKSPACE/NarutoSenki-V2-master:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android/prebuilt:$GITHUB_WORKSPACE/NarutoSenki-V2-master/CocosDenshion/android
           
           ./gradlew assembleDebug --no-daemon
+
 
       - name: Buat Menu Release Otomatis
         uses: softprops/action-gh-release@v2
