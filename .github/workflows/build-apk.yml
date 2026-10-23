@@ -45,15 +45,17 @@ jobs:
           # 1. Pastikan compiler menggunakan Clang modern
           find $GITHUB_WORKSPACE -name "Application.mk" -type f -exec sed -i 's/NDK_TOOLCHAIN_VERSION\s*:=\s*4.9/NDK_TOOLCHAIN_VERSION := clang/g' {} +
 
-          # 2. SUNTIKKAN FLAG PENONAKTIFAN LOCALE GLOBAL KE TINGKAT RUNTIME C++
-          # Bendera _LIBCPP_HAS_NO_LOCALIZATION akan mematikan pencarian uselocale di level terdalam sistem kompilasi NDK
-          find $GITHUB_WORKSPACE -name "Application.mk" -type f -exec sed -i 's/APP_CPPFLAGS\s*:=/APP_CPPFLAGS := -D_LIBCPP_HAS_NO_LOCALIZATION=1 -DFMT_STATIC_THOUSANDS_SEPARATOR=1 -DFMT_NOMINMAX=1 /g' {} +
-          find $GITHUB_WORKSPACE -name "Application.mk" -type f -exec sed -i 's/APP_CPPFLAGS\s*+=/APP_CPPFLAGS += -D_LIBCPP_HAS_NO_LOCALIZATION=1 -DFMT_STATIC_THOUSANDS_SEPARATOR=1 -DFMT_NOMINMAX=1 /g' {} +
-
-          # 3. BERSIHKAN TOTAL FOLDER INCLUDE PUSAT REPO AGAR TIDAK BENTROK
+          # 2. BERSIHKAN FOLDER INCLUDE PUSAT REPO AGAR TIDAK BENTROK
           rm -rf $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/toml.hpp
           rm -rf $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/src
           rm -rf $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/fmt
+
+          # 3. FIX JUARA: Menyuntikkan pemutus locale tepat di bawah deklarasi FMT_VERSION pada file core.h Anda
+          # Trik ini mematikan fitur lokalisasi secara mutlak di dalam library fmt bawaan proyek Anda
+          FMT_CORE="$GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt/core.h"
+          if [ -f "$FMT_CORE" ]; then
+            sed -i '/#define FMT_VERSION 80001/a \\n// NDK Locale Fixes\\n#define FMT_STATIC_THOUSANDS_SEPARATOR 1\\n#define FMT_NOMINMAX 1\\ntypedef void* iconv_t;' "$FMT_CORE"
+          fi
 
           # 4. Hubungkan bendera pencarian compiler (-I) langsung ke file build utama game
           find $GITHUB_WORKSPACE -name "Android.mk" -type f -exec sed -i "s|LOCAL_C_INCLUDES\s*:=|LOCAL_C_INCLUDES := $GITHUB_WORKSPACE/NarutoSenki-V2-master/external $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt |g" {} +
@@ -67,7 +69,6 @@ jobs:
           export NDK_MODULE_PATH=$GITHUB_WORKSPACE/NarutoSenki-V2-master/external:$GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml:$GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt:$GITHUB_WORKSPACE/NarutoSenki-V2-master:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android/prebuilt:$GITHUB_WORKSPACE/NarutoSenki-V2-master/CocosDenshion/android
           
           ./gradlew assembleDebug --no-daemon
-
 
       - name: Buat Menu Release Otomatis
         uses: softprops/action-gh-release@v2
