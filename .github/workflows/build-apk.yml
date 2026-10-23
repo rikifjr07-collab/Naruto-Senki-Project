@@ -45,33 +45,26 @@ jobs:
           # 1. Pastikan compiler menggunakan Clang modern
           find $GITHUB_WORKSPACE -name "Application.mk" -type f -exec sed -i 's/NDK_TOOLCHAIN_VERSION\s*:=\s*4.9/NDK_TOOLCHAIN_VERSION := clang/g' {} +
 
-          # 2. BUAT STRUKTUR FOLDER DI TARGET INCLUDE GLOBAL NDK SYSTEM
-          mkdir -p $ANDROID_NDK_HOME/sysroot/usr/include/fmt
-          mkdir -p $ANDROID_NDK_HOME/sysroot/usr/include/src
+          # 2. BERSIHKAN TOTAL FOLDER INCLUDE PUSAT AGAR TIDAK BENTROK
+          # Kita hapus file duplikat manual kemarin agar kompiler membaca folder external yang asli bawaan proyek
+          rm -rf $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/toml.hpp
+          rm -rf $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/src
+          rm -rf $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/fmt
 
-          # 3. SALIN SECOCOKNYA DENGAN PATH ABSOLUT (MEMAKSA FILE MASUK KE INTEGRASI GLOBAL)
-          # Ini menjamin file toml.hpp dan folder fmt terbaca oleh modul lua maupun classes
-          cp -r $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml/* $ANDROID_NDK_HOME/sysroot/usr/include/ 2>/dev/null || true
-          cp -r $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml/* $ANDROID_NDK_HOME/sysroot/usr/include/src/ 2>/dev/null || true
-          cp -r $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt/* $ANDROID_NDK_HOME/sysroot/usr/include/fmt/ 2>/dev/null || true
+          # 3. TRIK JALUR ABSOLUT: Masukkan flag pencarian compiler (-I) langsung ke file build utama game
+          # Ini memaksa compiler Android Studio untuk wajib melacak folder external/toml dan external/fmt bawaan asli proyek Anda
+          find $GITHUB_WORKSPACE -name "Android.mk" -type f -exec sed -i "s|LOCAL_C_INCLUDES\s*:=|LOCAL_C_INCLUDES := $GITHUB_WORKSPACE/NarutoSenki-V2-master/external $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt |g" {} +
+          find $GITHUB_WORKSPACE -name "Android.mk" -type f -exec sed -i "s|LOCAL_C_INCLUDES\s*+=|LOCAL_C_INCLUDES += $GITHUB_WORKSPACE/NarutoSenki-V2-master/external $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt |g" {} +
 
-          # 4. SALIN CADANGAN LANGSUNG KE REPO UTAMA AGAR MAKIN AMAN
-          mkdir -p $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/src
-          mkdir -p $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/fmt
-          cp -r $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml/* $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/ 2>/dev/null || true
-          cp -r $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml/* $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/src/ 2>/dev/null || true
-          cp -r $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt/* $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/fmt/ 2>/dev/null || true
-
-          # 5. PINDAH KE DIREKTORI UTAMA UNTUK PROSES BUILD
+          # 4. MASUK KE FOLDER UTAMA DAN JALANKAN CLEAN BUILD SEGAR
           cd $GITHUB_WORKSPACE/NarutoSenki-V2-master/projects/NarutoSenki/proj.android-studio
           chmod +x gradlew
-          
-          # 6. BERSIHKAN TOTAL MEMORI CACHE REPO SEBELUMNYA
           ./gradlew clean
           
           export NDK_MODULE_PATH=$GITHUB_WORKSPACE/NarutoSenki-V2-master/external:$GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml:$GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt:$GITHUB_WORKSPACE/NarutoSenki-V2-master:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android/prebuilt:$GITHUB_WORKSPACE/NarutoSenki-V2-master/CocosDenshion/android
           
           ./gradlew assembleDebug --no-daemon
+
 
       - name: Buat Menu Release Otomatis
         uses: softprops/action-gh-release@v2
