@@ -45,23 +45,25 @@ jobs:
           # 1. Pastikan compiler menggunakan Clang modern
           find $GITHUB_WORKSPACE -name "Application.mk" -type f -exec sed -i 's/NDK_TOOLCHAIN_VERSION\s*:=\s*4.9/NDK_TOOLCHAIN_VERSION := clang/g' {} +
 
-          # 2. TRIK JITU: Menyuntikkan deklarasi Locale & Iconv langsung ke file konfigurasi inti LLVM C++ NDK
-          # Ini akan memaksa compiler di level terdalam untuk langsung mengenali tipe data locale & iconv
-          SYS_CONFIG_H="$ANDROID_NDK_HOME/sources/cxx-stl/llvm-libc++/include/__config"
-          if [ -f "$SYS_CONFIG_H" ]; then
-            echo -e '\n// Fix NDK r21e Locale issues for modern libraries\n#include <sys/cdefs.h>\n#include <sys/types.h>\ntypedef void* iconv_t;\ntypedef void* locale_t;\n#define LC_COLLATE_MASK 0\n#define LC_CTYPE_MASK 0\n#define LC_MONETARY_MASK 0\n#define LC_NUMERIC_MASK 0\n#define LC_TIME_MASK 0\n#define LC_MESSAGES_MASK 0\n#ifdef __cplusplus\nextern "C" {\n#endif\ninline locale_t uselocale(locale_t) { return 0; }\ninline void* localeconv() { return 0; }\n#ifdef __cplusplus\n}\n#endif' >> "$SYS_CONFIG_H"
-          fi
+          # 2. BUAT FILE HEADER KHUSUS UNTUK MENETRALKAN ICONV SECARA MANDIRI
+          # Ini akan mendefinisikan iconv_t dengan aman tanpa mengganggu setingan locale bawaan Android
+          echo -e '#ifndef _NDK_ICONV_FIX_H_\n#define _NDK_ICONV_FIX_H_\ntypedef void* iconv_t;\n#endif' > $GITHUB_WORKSPACE/ndk_iconv_fix.h
 
-          # 3. BERSIHKAN TOTAL FOLDER INCLUDE PUSAT REPO AGAR TIDAK BENTROK
+          # 3. SUNTIKKAN BENDERA COMPILER GLOBAL KE APPLICATION.MK
+          # Perintah ini memaksa kompiler membaca file ndk_iconv_fix.h di setiap awal proses compile C++
+          find $GITHUB_WORKSPACE -name "Application.mk" -type f -exec sed -i "s|APP_CPPFLAGS\s*:=|APP_CPPFLAGS := -include $GITHUB_WORKSPACE/ndk_iconv_fix.h |g" {} +
+          find $GITHUB_WORKSPACE -name "Application.mk" -type f -exec sed -i "s|APP_CPPFLAGS\s*+=|APP_CPPFLAGS += -include $GITHUB_WORKSPACE/ndk_iconv_fix.h |g" {} +
+
+          # 4. BERSIHKAN TOTAL FOLDER INCLUDE PUSAT REPO AGAR TIDAK BENTROK
           rm -rf $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/toml.hpp
           rm -rf $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/src
           rm -rf $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/fmt
 
-          # 4. Hubungkan bendera pencarian compiler (-I) langsung ke file build utama game
+          # 5. Hubungkan bendera pencarian compiler (-I) langsung ke file build utama game
           find $GITHUB_WORKSPACE -name "Android.mk" -type f -exec sed -i "s|LOCAL_C_INCLUDES\s*:=|LOCAL_C_INCLUDES := $GITHUB_WORKSPACE/NarutoSenki-V2-master/external $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt |g" {} +
           find $GITHUB_WORKSPACE -name "Android.mk" -type f -exec sed -i "s|LOCAL_C_INCLUDES\s*+=|LOCAL_C_INCLUDES += $GITHUB_WORKSPACE/NarutoSenki-V2-master/external $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt |g" {} +
 
-          # 5. MASUK KE FOLDER UTAMA DAN JALANKAN CLEAN BUILD SEGAR
+          # 6. MASUK KE FOLDER UTAMA DAN JALANKAN CLEAN BUILD SEGAR
           cd $GITHUB_WORKSPACE/NarutoSenki-V2-master/projects/NarutoSenki/proj.android-studio
           chmod +x gradlew
           ./gradlew clean
@@ -69,7 +71,6 @@ jobs:
           export NDK_MODULE_PATH=$GITHUB_WORKSPACE/NarutoSenki-V2-master/external:$GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml:$GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt:$GITHUB_WORKSPACE/NarutoSenki-V2-master:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android/prebuilt:$GITHUB_WORKSPACE/NarutoSenki-V2-master/CocosDenshion/android
           
           ./gradlew assembleDebug --no-daemon
-
 
       - name: Buat Menu Release Otomatis
         uses: softprops/action-gh-release@v2
