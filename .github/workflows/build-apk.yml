@@ -45,14 +45,16 @@ jobs:
           # 1. Pastikan compiler menggunakan Clang modern
           find $GITHUB_WORKSPACE -name "Application.mk" -type f -exec sed -i 's/NDK_TOOLCHAIN_VERSION\s*:=\s*4.9/NDK_TOOLCHAIN_VERSION := clang/g' {} +
 
+          # PERBAIKAN UTAMA: Memaksa penggunaan runtime C++ bersama agar mendukung tipe data 'iconv_t' dan 'uselocale'
+          find $GITHUB_WORKSPACE -name "Application.mk" -type f -exec sed -i 's/APP_STL\s*:=\s*c++_static/APP_STL := c++_shared/g' {} +
+          find $GITHUB_WORKSPACE -name "Application.mk" -type f -exec sed -i 's/APP_STL\s*:=\s*gnustl_static/APP_STL := c++_shared/g' {} +
+
           # 2. BERSIHKAN TOTAL FOLDER INCLUDE PUSAT AGAR TIDAK BENTROK
-          # Kita hapus file duplikat manual kemarin agar kompiler membaca folder external yang asli bawaan proyek
           rm -rf $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/toml.hpp
           rm -rf $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/src
           rm -rf $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/fmt
 
-          # 3. TRIK JALUR ABSOLUT: Masukkan flag pencarian compiler (-I) langsung ke file build utama game
-          # Ini memaksa compiler Android Studio untuk wajib melacak folder external/toml dan external/fmt bawaan asli proyek Anda
+          # 3. Suntikkan flag pencarian compiler (-I) langsung ke file build utama game
           find $GITHUB_WORKSPACE -name "Android.mk" -type f -exec sed -i "s|LOCAL_C_INCLUDES\s*:=|LOCAL_C_INCLUDES := $GITHUB_WORKSPACE/NarutoSenki-V2-master/external $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt |g" {} +
           find $GITHUB_WORKSPACE -name "Android.mk" -type f -exec sed -i "s|LOCAL_C_INCLUDES\s*+=|LOCAL_C_INCLUDES += $GITHUB_WORKSPACE/NarutoSenki-V2-master/external $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml $GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt |g" {} +
 
@@ -64,7 +66,6 @@ jobs:
           export NDK_MODULE_PATH=$GITHUB_WORKSPACE/NarutoSenki-V2-master/external:$GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml:$GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt:$GITHUB_WORKSPACE/NarutoSenki-V2-master:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android/prebuilt:$GITHUB_WORKSPACE/NarutoSenki-V2-master/CocosDenshion/android
           
           ./gradlew assembleDebug --no-daemon
-
 
       - name: Buat Menu Release Otomatis
         uses: softprops/action-gh-release@v2
