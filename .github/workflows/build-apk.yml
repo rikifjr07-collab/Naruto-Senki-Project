@@ -50,9 +50,9 @@ jobs:
           rm -rf $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/src
           rm -rf $GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/include/fmt
 
-          # 3. PERBAIKAN AKURAT: Tuntaskan tipe kembalian lconv / localeconv agar cocok dengan compiler
-          # Kita buat tiruan struktur lconv minimal agar fungsi localeconv() mengembalikan tipe objek yang valid
-          echo -e '#ifndef _NDK_LOCALE_FIX_H_\n#define _NDK_LOCALE_FIX_H_\n#include <sys/cdefs.h>\ntypedef void* iconv_t;\ntypedef void* locale_t;\n#define LC_COLLATE_MASK 0\n#define LC_CTYPE_MASK 0\n#define LC_MONETARY_MASK 0\n#define LC_NUMERIC_MASK 0\n#define LC_TIME_MASK 0\n#define LC_MESSAGES_MASK 0\n#ifdef __cplusplus\nextern "C" {\n#endif\nstruct lconv { char* decimal_point; char* thousands_sep; char* grouping; };\ninline locale_t uselocale(locale_t) { return 0; }\ninline struct lconv* localeconv() { static struct lconv null_lconv = {0,0,0}; return &null_lconv; }\n#ifdef __cplusplus\n}\n#endif\n#endif' > $GITHUB_WORKSPACE/ndk_locale_fix.h
+          # 3. FIX ABSOLUT: Menyertakan locale bawaan NDK terlebih dahulu baru mengamankan fungsi tiruan
+          # Trik ini menggunakan macro guard agar tidak memicu 'typedef redefinition' lagi
+          echo -e '#ifndef _NDK_LOCALE_FIX_H_\n#define _NDK_LOCALE_FIX_H_\n#include <sys/cdefs.h>\n#include <locale.h>\n#include <xlocale.h>\ntypedef void* iconv_t;\n#define LC_COLLATE_MASK 0\n#define LC_CTYPE_MASK 0\n#define LC_MONETARY_MASK 0\n#define LC_NUMERIC_MASK 0\n#define LC_TIME_MASK 0\n#define LC_MESSAGES_MASK 0\n#ifdef __cplusplus\nextern "C" {\n#endif\n#ifndef _LOCALE_T_DEFINED\n#define _LOCALE_T_DEFINED\n#endif\ninline locale_t uselocale(locale_t) { return 0; }\n#ifdef __cplusplus\n}\n#endif\n#endif' > $GITHUB_WORKSPACE/ndk_locale_fix.h
 
           # Masukkan file penetral ke folder system include utama NDK
           cp $GITHUB_WORKSPACE/ndk_locale_fix.h $ANDROID_NDK_HOME/sysroot/usr/include/
@@ -73,6 +73,7 @@ jobs:
           export NDK_MODULE_PATH=$GITHUB_WORKSPACE/NarutoSenki-V2-master/external:$GITHUB_WORKSPACE/NarutoSenki-V2-master/external/toml:$GITHUB_WORKSPACE/NarutoSenki-V2-master/external/fmt:$GITHUB_WORKSPACE/NarutoSenki-V2-master:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android:$GITHUB_WORKSPACE/NarutoSenki-V2-master/cocos2dx/platform/third_party/android/prebuilt:$GITHUB_WORKSPACE/NarutoSenki-V2-master/CocosDenshion/android
           
           ./gradlew assembleDebug --no-daemon
+
 
       - name: Buat Menu Release Otomatis
         uses: softprops/action-gh-release@v2
